@@ -1,2 +1,2 @@
 # rando-tools
-random home tools
+random tools and helper scripts
