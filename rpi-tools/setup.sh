@@ -87,26 +87,3 @@ if [[ "${STEP}" == "copy-files" ]]; then
 
   exit 0
 fi
-
-# for dnsmasq
-
-# /etc/hosts
-# 127.0.0.1	localhost
-# ::1		localhost ip6-localhost ip6-loopback
-# ff02::1		ip6-allnodes
-# ff02::2		ip6-allrouters
-
-# 127.0.1.1	rpi-001
-# # my entries
-# 192.168.1.7	upwall
-# 192.168.1.9	garage
-# 192.168.1.10	upstairs
-# 192.168.1.20	nas
-
-
-# cat /etc/dnsmasq.d/home.lan 
-# domain-needed
-# bogus-priv
-# strict-order
-# expand-hosts
-# domain=home.lan
