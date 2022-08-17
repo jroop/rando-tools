@@ -1,4 +1,6 @@
 *.img
 *.zip
+*.xz
+raspios-lite
 secrets.sh
 tmp/

@@ -1,11 +1,24 @@
 #!/bin/bash
 
 STEP=$1
-IMAGE=2021-10-30-raspios-bullseye-armhf-lite
+
+if [[ "${STEP}" == "make-secrets" ]]; then
+  cp config/secrets.sh.tpl secrets.sh
+  echo "go ahead and edit ./secrets.sh"
+  exit 0
+fi
+
+if [[ ! -f "./secrets.sh" ]]; then
+  echo -e "run:\n\t$0 make-secrets"
+  exit 0
+fi
+
+# the generated and edited file that has all config info
+source ./secrets.sh
 
 # get an image want to use from here: https://www.raspberrypi.com/software/operating-systems/#raspberry-pi-os-32-bit
 if [[ "${STEP}" == "download" ]]; then
-  wget -O raspios-lite.zip https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2021-11-08/${IMAGE}.zip && unzip raspios-lite.zip
+  wget -O raspios-lite.zip ${IMAGE_LINK} && unzip raspios-lite.zip
   exit 0
 fi
 
@@ -37,15 +50,6 @@ if [[ "${STEP}" == "build" ]]; then
 
   echo -e "if want to disable WIFI or BT then add following lines to /boot/config.txt\n\tdtoverlay=disable-wifi\n\tdtoverlay=disable-bt"
 
-  # if no secrets.sh make it and exit
-  if [[ ! -f "./secrets.sh" ]]; then
-    cp config/secrets.sh.tpl secrets.sh
-    echo "after editing ./secrets.sh run again"
-    exit 0
-  fi
-
-  source secrets.sh
-
   mkdir -p tmp/boot && mkdir -p tmp/rootfs
 
   # boot files
@@ -65,8 +69,6 @@ fi
 
 if [[ "${STEP}" == "copy-files" ]]; then
 
-  source secrets.sh
-
   if [[ ! -d "${SDCARD_MNT_BOOT}" || ! -d "${SDCARD_MNT_ROOTFS}" ]]; then
     echo "make sure SDCARD_MNT_BOOT & SDCARD_MNT_ROOTFS are set in secrets.sh"
     echo "make sure SD card is mounted ... click in folder"
@@ -74,14 +76,16 @@ if [[ "${STEP}" == "copy-files" ]]; then
   fi
 
   # boot files copy
-  cp tmp/boot/ssh ${SDCARD_MNT_BOOT}/
-  cp tmp/boot/wpa_supplicant.conf ${SDCARD_MNT_BOOT}/
-  cp tmp/boot/config.txt ${SDCARD_MNT_BOOT}/
-
-  # rootfs files copy
-  sudo cp tmp/rootfs/hostname ${SDCARD_MNT_ROOTFS}/etc/
-  sudo cp tmp/rootfs/hosts ${SDCARD_MNT_ROOTFS}/etc/
-  sudo cp tmp/rootfs/dhcpcd.conf ${SDCARD_MNT_ROOTFS}/etc/
+  sudo cp tmp/boot/ssh ${SDCARD_MNT_BOOT}/
+  sudo cp tmp/boot/wpa_supplicant.conf ${SDCARD_MNT_BOOT}/
+  
+  # if want to set static with specific dhcp server
+  if [[ ! -z "${STATIC_IP}" ]]; then 
+    sudo cp tmp/boot/config.txt ${SDCARD_MNT_BOOT}/
+    sudo cp tmp/rootfs/hostname ${SDCARD_MNT_ROOTFS}/etc/
+    sudo cp tmp/rootfs/hosts ${SDCARD_MNT_ROOTFS}/etc/
+    sudo cp tmp/rootfs/dhcpcd.conf ${SDCARD_MNT_ROOTFS}/etc/
+  fi
 
   echo -e "try to unmount:\n\t${SDCARD_MNT_BOOT}\n\t${SDCARD_MNT_ROOTFS}"
 
