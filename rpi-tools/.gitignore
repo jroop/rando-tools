@@ -1,0 +1,4 @@
+*.img
+*.zip
+secrets.sh
+tmp/
