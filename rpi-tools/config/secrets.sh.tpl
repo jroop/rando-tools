@@ -3,7 +3,7 @@
 # NOTE ensure variables are filled out
 export SSID_NAME=
 export SSID_PASS=
-export STATIC_IP=
+export STATIC_IP= # can leave blank if not using static ip setup and will skip
 export HOSTNAME=raspberrypi
 export NETWORK_TYPE=wlan0 # wlan0 or eth0
 
@@ -12,8 +12,9 @@ export NETWORK_TYPE=wlan0 # wlan0 or eth0
 export SDCARD=/dev/sdb
 
 # Raspios image from here: https://www.raspberrypi.com/software/operating-systems/
-export IMAGE_LINK=https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2021-11-08/2021-10-30-raspios-bullseye-armhf-lite.zip
-export IMAGE=2021-10-30-raspios-bullseye-armhf-lite
+export IMAGE_LINK=https://downloads.raspberrypi.org/raspios_lite_armhf/images/raspios_lite_armhf-2022-01-28/2022-01-28-raspios-bullseye-armhf-lite.zip
+# comes from the end of the above link, with no suffix (ie .zip, .img, .xz)
+export IMAGE=2022-01-28-raspios-bullseye-armhf-lite
 
 # SD card locations
 export SDCARD_MNT_BOOT=/media/${USER}/boot/
@@ -27,4 +28,7 @@ if [[ "${NETWORK_TYPE}" == "eth0" ]]; then
 
 fi
 
-export STATIC_IP_SETUP=$(echo -e "interface ${NETWORK_TYPE}\nstatic ip_address=${STATIC_IP}/24\nstatic routers=192.168.1.1\nstatic domain_name_servers=192.168.1.1")
+export STATIC_IP_SETUP=
+if [[ ! -z "${STATIC_IP}" ]]; then
+  export STATIC_IP_SETUP=$(echo -e "interface ${NETWORK_TYPE}\nstatic ip_address=${STATIC_IP}/24\nstatic routers=192.168.1.1\nstatic domain_name_servers=192.168.1.1")
+fi
