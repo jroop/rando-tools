@@ -3,6 +3,6 @@ country=US
 update_config=1
 
 network={
- ssid="${SSID_NAME}"
- psk="${SSID_PASS}"
+ ssid="${RPI_SSID_NAME}"
+ psk="${RPI_SSID_PASS}"
 }

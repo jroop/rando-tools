@@ -3,7 +3,7 @@
 STEP=$1
 
 if [[ "${STEP}" == "make-secrets" ]]; then
-  cp config/secrets.sh.tpl secrets.sh
+  cp config/secrets.sh.sh secrets.sh
   echo "go ahead and edit ./secrets.sh"
   exit 0
 fi
@@ -16,14 +16,32 @@ fi
 # the generated and edited file that has all config info
 source ./secrets.sh
 
+# get the base file name without compressed extension .xz
+
+RPI_IMAGE=$(basename ${RPI_IMAGE_LINK} .xz)
+echo -e "using image: ${RPI_IMAGE}"
+
+# find OS base 32 vs 64
+export RPI_OS=
+# arm64
+if [[ "${RPI_IMAGE}" == *"arm64"* ]]; then
+  # used on file names
+  RPI_OS=_64
+fi
+
+# show all the variables
+export -p | grep RPI_
+
 # get an image want to use from here: https://www.raspberrypi.com/software/operating-systems/#raspberry-pi-os-32-bit
-if [[ "${STEP}" == "download" ]]; then
-  wget -O raspios-lite.zip ${IMAGE_LINK} && unzip raspios-lite.zip
+# see if download and the image doesn't already exists
+if [[ "${STEP}" == "download" && ! -f "${RPI_IMAGE}" ]]; then
+  # download and decompress it
+  wget -O ${RPI_IMAGE}.xz ${RPI_IMAGE_LINK} && xz -d ${RPI_IMAGE}.xz
   exit 0
 fi
 
 if [[ "${STEP}" == "see-card" ]]; then 
-  lsblk -p
+  lsblk -p | grep /dev/sd
   if [[ "${2}" ]]; then
     # unmount cards
     echo "${1}, ${2}"
@@ -39,55 +57,75 @@ fi
 if [[ "${STEP}" == "copy" ]]; then
   echo "see here: https://www.raspberrypi.com/documentation/computers/getting-started.html"
   if [[ "${2}" ]]; then
-    echo "sudo dd if=${IMAGE}.img of=${2} bs=4M conv=fsync status=progress"
+    echo "sudo dd if=${RPI_IMAGE} of=${2} bs=4M conv=fsync status=progress"
   else  
-    echo "need to pass card mount like /dev/sdb"
+    echo "need to pass card mount like /dev/sdb or /dev/sda"
   fi
   exit 0
 fi
 
 if [[ "${STEP}" == "build" ]]; then
 
-  echo -e "if want to disable WIFI or BT then add following lines to /boot/config.txt\n\tdtoverlay=disable-wifi\n\tdtoverlay=disable-bt"
+  echo -e "if want to disable WIFI or BT then secrets.sh NETWORK_TYPE=eth0 default wlan0"
 
-  mkdir -p tmp/boot && mkdir -p tmp/rootfs
+  mkdir -p tmp/bootfs && mkdir -p tmp/rootfs
 
-  # boot files
-  envsubst < config/boot/ssh > tmp/boot/ssh
-  envsubst < config/boot/wpa_supplicant.conf.tpl > tmp/boot/wpa_supplicant.conf
-  envsubst < config/boot/config.txt.tpl > tmp/boot/config.txt
+  # password for pi
+  if [[ "${2}" ]]; then
+    export RPI_ENCRYPT_PASSWD=${2}
+  else
+    echo -e "pass in encrypted password from running\n echo 'my_secret_password' | openssl passwd -6 -stdin"
+    exit 1
+  fi
 
-  # rootfs files
-  envsubst < config/rootfs/hostname.tpl > tmp/rootfs/hostname
-  envsubst < config/rootfs/hosts.tpl > tmp/rootfs/hosts
-  envsubst < config/rootfs/dhcpcd.conf.tpl > tmp/rootfs/dhcpcd.conf
+  # bootfs pi encrypt password
+  envsubst < config/bootfs/userconf.txt.sh > tmp/bootfs/userconf.txt
 
-  echo "check files under: tmp/boot & tmp/rootfs"
+  # bootfs files ssh and wifi
+  envsubst < config/bootfs/ssh > tmp/bootfs/ssh
+  envsubst < config/bootfs/wpa_supplicant.conf.sh > tmp/bootfs/wpa_supplicant.conf
+
+  # bootfs files config (might now work on newer congfigs)
+  envsubst < config/bootfs/config${RPI_OS}.txt.sh > tmp/bootfs/config.txt
+
+  # rootfs files host names
+  envsubst < config/rootfs/hostname.sh > tmp/rootfs/hostname
+  envsubst < config/rootfs/hosts.sh > tmp/rootfs/hosts
+
+  # rootfs files on for older OS
+  if [[ ! "${RPI_OS}" == "_64" ]]; then
+    envsubst < config/rootfs/dhcpcd.conf.sh > tmp/rootfs/dhcpcd.conf
+  fi
+
+  echo "check files under: tmp/bootfs & tmp/rootfs"
 
   exit 0
 fi
 
-if [[ "${STEP}" == "copy-files" ]]; then
+if [[ "${STEP}" == "update-files" ]]; then
 
-  if [[ ! -d "${SDCARD_MNT_BOOT}" || ! -d "${SDCARD_MNT_ROOTFS}" ]]; then
-    echo "make sure SDCARD_MNT_BOOT & SDCARD_MNT_ROOTFS are set in secrets.sh"
+  if [[ ! -d "${RPI_SDCARD_MNT_BOOTFS}" || ! -d "${RPI_SDCARD_MNT_ROOTFS}" ]]; then
+    echo "make sure RPI_SDCARD_MNT_BOOTFS & RPI_SDCARD_MNT_ROOTFS are set in secrets.sh"
     echo "make sure SD card is mounted ... click in folder"
     exit 1
   fi
 
-  # boot files copy
-  sudo cp tmp/boot/ssh ${SDCARD_MNT_BOOT}/
-  sudo cp tmp/boot/wpa_supplicant.conf ${SDCARD_MNT_BOOT}/
+  # bootfs files copy
+  sudo cp tmp/bootfs/userconf.txt ${RPI_SDCARD_MNT_BOOTFS}/
+  sudo cp tmp/bootfs/ssh ${RPI_SDCARD_MNT_BOOTFS}/
+  sudo cp tmp/bootfs/wpa_supplicant.conf ${RPI_SDCARD_MNT_BOOTFS}/
+
+  # rootfs files copy
+  sudo cp tmp/rootfs/hostname ${RPI_SDCARD_MNT_ROOTFS}/etc/
+  sudo cp tmp/rootfs/hosts ${RPI_SDCARD_MNT_ROOTFS}/etc/
   
   # if want to set static with specific dhcp server
-  if [[ ! -z "${STATIC_IP}" ]]; then 
-    sudo cp tmp/boot/config.txt ${SDCARD_MNT_BOOT}/
-    sudo cp tmp/rootfs/hostname ${SDCARD_MNT_ROOTFS}/etc/
-    sudo cp tmp/rootfs/hosts ${SDCARD_MNT_ROOTFS}/etc/
-    sudo cp tmp/rootfs/dhcpcd.conf ${SDCARD_MNT_ROOTFS}/etc/
+  if [[ ! -z "${RPI_STATIC_IP}" ]]; then 
+    sudo cp tmp/bootfs/config.txt ${RPI_SDCARD_MNT_BOOTFS}/
+    sudo cp tmp/rootfs/dhcpcd.conf ${RPI_SDCARD_MNT_ROOTFS}/etc/
   fi
 
-  echo -e "try to unmount:\n\t${SDCARD_MNT_BOOT}\n\t${SDCARD_MNT_ROOTFS}"
+  echo -e "try to unmount:\n\t${RPI_SDCARD_MNT_BOOTFS}\n\t${RPI_SDCARD_MNT_ROOTFS}"
 
   exit 0
 fi

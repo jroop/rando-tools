@@ -58,4 +58,4 @@ slaac private
 #interface eth0
 #fallback static_eth0
 
-${STATIC_IP_SETUP}
+${RPI_STATIC_IP_SETUP}

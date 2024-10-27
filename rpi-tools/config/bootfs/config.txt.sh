@@ -66,10 +66,10 @@ max_framebuffers=2
 disable_overscan=1
 
 # disable wifi
-${BOOT_DISABLE_WIFI}
+${RPI_BOOT_DISABLE_WIFI}
 
 # disable bluetooth
-${DOOT_DISABLE_BT}
+${RPI_BOOT_DISABLE_BT}
 
 
 [cm4]
